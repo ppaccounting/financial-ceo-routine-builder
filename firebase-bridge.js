@@ -9,5 +9,6 @@ window.vipBackend={
  async reset(email){return fbAuth.sendPasswordResetEmail(email)},
  async logout(){return fbAuth.signOut()},
  async load(user){const snap=await fbDb.collection('users').doc(user.uid).collection('weeklyCheckins').orderBy('createdAt','desc').limit(100).get();return snap.docs.map(d=>d.data().routine).filter(Boolean)},
+ async test(user){const ref=fbDb.collection('users').doc(user.uid).collection('weeklyCheckins').doc('connection-test');await ref.set({createdAt:new Date().toISOString(),routine:{id:'connection-test',date:'test',createdAt:new Date().toISOString(),questions:[]}});await ref.delete();return true},
  async save(user,routine){const ref=fbDb.collection('users').doc(user.uid).collection('weeklyCheckins').doc(routine.id);await ref.set({routine,createdAt:routine.createdAt,updatedAt:new Date().toISOString()})}
 };
