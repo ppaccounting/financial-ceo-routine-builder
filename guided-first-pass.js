@@ -51,6 +51,19 @@ function reportHelp(r){let key=r.report||'pnl';return '<div class="group"><label
 function paymentConcern(g){const t=(g.review.detail+' '+g.approve.note+' '+g.review.issues.map(i=>reviewOptions[i]).join(' ')).toLowerCase();return /payment|transaction|charge|merchant|deposit|duplicate|category|categor|receipt|invoice|unfamiliar|recogniz|recognis/.test(t)}
 function financialConcern(g){const t=(g.review.detail+' '+g.approve.note).toLowerCase();return /profit and loss|balance sheet|report|net profit|cash flow|revenue|sales|reserve|owner pay/.test(t)}
 function issueText(g){return g.review.detail||g.review.issues.map(i=>reviewOptions[i]).join('; ')||'No specific concern recorded'}
+function emailTopic(g,stage){
+ if(stage==='Review'){
+  const r=g.review||{},detail=(r.detail||'').toLowerCase();
+  if(/payment|deposit/.test(detail)&&/don't know|do not know|cannot identify|can't identify|unidentified|unknown|which customer|who sent/.test(detail))return 'Unidentified customer payment';
+  if(r.mode==='unsure'){const group=guidance[r.kind]||guidance.meaning;const choice=group.choices.find(x=>x[0]===r.subkind)||group.choices[0];return choice[1]}
+  if(r.issues?.length)return reviewOptions[r.issues[0]];
+  return 'Review question';
+ }
+ if(stage==='Approve')return 'Transaction verification question';
+ if(stage==='Understand')return 'Understanding my business numbers';
+ if(stage==='Act')return 'Next action or follow-up';
+ return 'Financial CEO Routine question';
+}
 function guidanceEmail(stage,topic,question){return 'Hi Kimberley,\n\nI am working through my Financial CEO 30-Minute Routine Builder and need some help.\n\nSection: '+stage+'\nTopic: '+topic+'\n\nMy question:\n'+(question||'[My question]')+'\n\nCould you help me understand what to check next?\n\nThank you!'}
 function helpEmailBox(stage,topic,question){const body=guidanceEmail(stage,topic,question);return '<div class="notice email-preview"><strong>Your ready-to-copy email</strong><p><strong>To:</strong> accounting@profitablepenny.com<br><strong>Subject:</strong> Question about my Financial CEO Routine</p><pre id="emailPreview">'+esc(body)+'</pre><div class="actions"><button type="button" class="secondary" id="copyEmail">Copy email message</button><a id="openEmail" href="mailto:accounting@profitablepenny.com?subject='+encodeURIComponent('Question about my Financial CEO Routine')+'&body='+encodeURIComponent(body)+'">Open in my email app</a></div><p class="muted">Nothing is sent automatically. Please do not include account numbers or sensitive client data.</p></div>'}
 function updateEmail(stage,topic,question){const text=guidanceEmail(stage,topic,question);if($('emailPreview'))$('emailPreview').textContent=text;if($('openEmail'))$('openEmail').href='mailto:accounting@profitablepenny.com?subject='+encodeURIComponent('Question about my Financial CEO Routine')+'&body='+encodeURIComponent(text)}
@@ -130,7 +143,7 @@ function guidanceHelpText(){return draft.guide.helpQuestion||((step===0&&draft.g
 function guidedStepView(){
  guideState();
  const [name,min]=sections[step];
- $('app').innerHTML='<section class="panel"><div class="toolbar"><span class="badge">Step '+(step+1)+' of 4</span><label>Week of <input id="date" type="date" value="'+esc(draft.date)+'"></label></div><div class="steps">'+sections.map((s,i)=>'<div class="step '+(step===i?'active':'')+'">'+s[0]+'<small>'+s[1]+' minutes</small></div>').join('')+'</div><h2>'+name+' · '+min+' minutes</h2>'+guideBody(step)+'<div class="group"><h3>Need help with this?</h3><p>Write a question below, and we will prepare an email you can copy or open. Your question stays with your routine.</p><label for="helpQuestion">My question for Kimberley</label><textarea id="helpQuestion" placeholder="What still needs an answer?">'+esc(guidanceHelpText())+'</textarea>'+helpEmailBox(name,issueText(draft.guide),guidanceHelpText())+'</div>'+helpLinks+'<p class="muted">Your first routine may take longer as you establish a baseline. Thirty minutes is the weekly habit you’re building.</p><p id="saveError" role="alert" class="status"></p><div class="actions"><button id="back" class="secondary">'+(step===0?'Back to dashboard':'Previous step')+'</button><button id="next">'+(step===3?'Finish my weekly check-in':'Continue')+'</button></div></section>';
+ $('app').innerHTML='<section class="panel"><div class="toolbar"><span class="badge">Step '+(step+1)+' of 4</span><label>Week of <input id="date" type="date" value="'+esc(draft.date)+'"></label></div><div class="steps">'+sections.map((s,i)=>'<div class="step '+(step===i?'active':'')+'">'+s[0]+'<small>'+s[1]+' minutes</small></div>').join('')+'</div><h2>'+name+' · '+min+' minutes</h2>'+guideBody(step)+'<div class="group"><h3>Need help with this?</h3><p>Write a question below, and we will prepare an email you can copy or open. Your question stays with your routine.</p><label for="helpQuestion">My question for Kimberley</label><textarea id="helpQuestion" placeholder="What still needs an answer?">'+esc(guidanceHelpText())+'</textarea>'+helpEmailBox(name,emailTopic(draft.guide,name),guidanceHelpText())+'</div>'+helpLinks+'<p class="muted">Your first routine may take longer as you establish a baseline. Thirty minutes is the weekly habit you’re building.</p><p id="saveError" role="alert" class="status"></p><div class="actions"><button id="back" class="secondary">'+(step===0?'Back to dashboard':'Previous step')+'</button><button id="next">'+(step===3?'Finish my weekly check-in':'Continue')+'</button></div></section>';
  $('date').onchange=e=>{draft.date=e.target.value;saveDraft()};
  const g=draft.guide;
  if(step===0){
@@ -158,7 +171,7 @@ function guidedStepView(){
   $('takeaway').oninput=e=>{g.understand.takeaway=e.target.value;draft.notes[2]=e.target.value;saveDraft()};
  }
  if(step===3){['decision','owner','due','nextWeek'].forEach(k=>$(k).oninput=e=>{draft[k]=e.target.value;saveDraft()});if(!draft.decision){draft.decision=$('decision').value;saveDraft()}if(!draft.owner){draft.owner=$('owner').value;saveDraft()}document.querySelectorAll('[data-action-status]').forEach(el=>el.onchange=()=>{const q=[...draft.questions,...draft.carry].find(x=>x.id===el.dataset.actionStatus);if(q){q.status=el.value;saveDraft()}})}
- if($('helpQuestion'))$('helpQuestion').oninput=e=>{g.helpQuestion=e.target.value;trackQuestionText(name,e.target.value);updateEmail(name,issueText(g),e.target.value)};
+ if($('helpQuestion'))$('helpQuestion').oninput=e=>{g.helpQuestion=e.target.value;trackQuestionText(name,e.target.value);updateEmail(name,emailTopic(g,name),e.target.value)};
  if($('copyEmail'))$('copyEmail').onclick=async()=>{try{await navigator.clipboard.writeText($('emailPreview').textContent);$('copyEmail').textContent='Copied!'}catch(e){const range=document.createRange();range.selectNodeContents($('emailPreview'));const sel=window.getSelection();sel.removeAllRanges();sel.addRange(range);$('copyEmail').textContent='Select and copy the highlighted message'}};
  $('back').onclick=()=>{if(step===0)screen='home';else step--;saveDraft();render()};
  $('next').onclick=()=>{if(step===3){void finishCheckin()}else{step++;saveDraft();render()}};
