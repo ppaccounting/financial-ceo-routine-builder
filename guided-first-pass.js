@@ -69,6 +69,14 @@ function guideBody(stepNum){
  return actBody(g.act,g);
 }
 
+function firstPassHelp(r){
+ const description=(r.detail||'').trim();
+ if(!description)return '<p>Please describe what you noticed first so we can suggest a useful next step.</p>';
+ const unidentified=/payment|deposit|transfer|transaction/i.test(description)&&/don't know|do not know|cannot identify|can't identify|unidentified|unknown|unrecogniz|unfamiliar|which customer|who sent/i.test(description);
+ if(unidentified)return '<strong>What is still unclear about this payment?</strong><p>You have a payment but have not identified who sent it. Before assigning a category or matching it to an invoice:</p><ol><li>Check the bank transaction details for a sender, reference number or payment processor.</li><li>Compare the date and amount with open invoices and recent customer payment records in QuickBooks.</li><li>If you use a payment processor, check its payout details. Deposits may combine payments or reflect fees.</li></ol><p>If the source is still unclear, leave it unapproved and record what you checked. Do not guess or create a duplicate payment. Ask Kimberley for help with the remaining question.</p>';
+ if(/missing|not show|can't find|cannot find/i.test(description)&&/sale|invoice|payment|customer/i.test(description))return '<strong>Let’s trace the missing payment.</strong><ol><li>Check the invoice status and customer payment history.</li><li>Confirm whether the money reached the bank or payment processor.</li><li>Compare the dates and report filters before making changes.</li></ol><p>If it still does not match, record what you found and ask for help rather than entering the payment twice.</p>';
+ return '<strong>Let’s narrow this down.</strong><ol><li>Identify the exact date, amount, report or transaction involved.</li><li>Compare it with an original bank record, invoice or receipt.</li><li>Write down what matches and what is still unclear.</li></ol><p>Do not approve, recategorize or delete anything you cannot verify. You can ask Kimberley for help with the remaining question.</p>';
+}
 function reviewBody(r){
  const selected=guidance[r.kind]||guidance.meaning,chosen=selected.choices.find(x=>x[0]===r.subkind)||selected.choices[0];
  let info='';
@@ -79,7 +87,7 @@ function reviewBody(r){
  else info+='<div class="notice">'+esc(chosen[2])+((/transaction|unfamiliar|duplicate|amount|category|bank|feed/.test(chosen[0]))?qbBankSteps:'')+'</div>';
  info+='</div>'}
  if(r.mode==='attention')info='<div class="notice"><p>Describe what caught your attention. If it involves a transaction, we will help you investigate it in Approve. A report question will go to Understand.</p>'+qbBankSteps+'</div>';
- if(r.mode==='unsure'||r.mode==='attention')info+='<div class="group"><label for="reviewResult">Where are you now?</label><select id="reviewResult"><option value="">Choose one</option><option value="understood" '+(r.result==='understood'?'selected':'')+'>I understand this better now</option><option value="partial" '+(r.result==='partial'?'selected':'')+'>I understand a little, but I have a question</option><option value="stuck" '+(r.result==='stuck'?'selected':'')+'>I am still confused and need personal help</option></select><label for="reviewDetail">'+(r.result==='understood'?'What did you learn?':'What did you notice or what question still needs an answer?')+'</label><textarea id="reviewDetail" placeholder="For example: There is a payment I cannot identify.">'+esc(r.detail)+'</textarea>'+(r.result==='partial'||r.result==='stuck'?'<p>It is okay to stop here, save your question, and ask for help. You can continue without guessing.</p>':'')+'</div>';
+ if(r.mode==='unsure'||r.mode==='attention')info+='<div class="group"><label for="reviewResult">Where are you now?</label><select id="reviewResult"><option value="">Choose one</option><option value="understood" '+(r.result==='understood'?'selected':'')+'>I understand this better now</option><option value="partial" '+(r.result==='partial'?'selected':'')+'>I understand a little, but I have a question</option><option value="stuck" '+(r.result==='stuck'?'selected':'')+'>I am still confused and need personal help</option></select><label for="reviewDetail">'+(r.result==='understood'?'What did you learn?':'What did you notice or what question still needs an answer?')+'</label><textarea id="reviewDetail" placeholder="For example: There is a payment I cannot identify.">'+esc(r.detail)+'</textarea><button type="button" class="secondary" id="workThrough">Help me work through this</button>'+(r.showFirstPass?'<div id="firstPassGuidance" class="notice" role="status">'+firstPassHelp(r)+'</div>':'')+(r.result==='partial'||r.result==='stuck'?'<p>It is okay to stop here, save your question, and ask for help. You can continue without guessing.</p>':'')+'</div>';
  return '<h2>What needs your attention this week?</h2><p>Open QuickBooks and notice what deserves a closer look. You do not have to fix everything today.</p><div class="group">'+reviewOptions.map((t,i)=>'<label class="choice"><input type="checkbox" data-review="'+i+'" '+(r.issues.includes(i)?'checked':'')+'> '+esc(t)+'</label>').join('')+'</div><div class="group"><h3>Did everything look okay?</h3>'+htmlRadios('reviewMode',reviewModes,r.mode)+'</div>'+info;
 }
 
@@ -130,7 +138,8 @@ function guidedStepView(){
   document.querySelectorAll('[name=reviewMode]').forEach(el=>el.onchange=()=>{g.review.mode=el.value;saveDraft();render()});
   document.querySelectorAll('[name=reviewKind]').forEach(el=>el.onchange=()=>{g.review.kind=el.value;g.review.subkind='';saveDraft();render()});
   if($('reviewSubkind'))$('reviewSubkind').onchange=e=>{g.review.subkind=e.target.value;saveDraft();render()};
-  if($('reviewDetail'))$('reviewDetail').oninput=e=>{g.review.detail=e.target.value;draft.notes[0]=e.target.value;saveDraft()};
+  if($('reviewDetail'))$('reviewDetail').oninput=e=>{g.review.detail=e.target.value;g.review.showFirstPass=false;draft.notes[0]=e.target.value;saveDraft();const panel=$('firstPassGuidance');if(panel)panel.remove()};
+  if($('workThrough'))$('workThrough').onclick=()=>{g.review.showFirstPass=true;saveDraft();render()};
   if($('reviewResult'))$('reviewResult').onchange=e=>{g.review.result=e.target.value;saveDraft();render()};
   if($('reviewReport'))$('reviewReport').onchange=e=>{g.review.report=e.target.value;saveDraft();render()};
  }
