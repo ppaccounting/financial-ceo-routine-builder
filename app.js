@@ -3,7 +3,33 @@ const KEY='ppa-financial-ceo-vip-v1';
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
 const uid=()=>crypto.randomUUID?.()??('id-'+Date.now()+'-'+Math.random());
-let saved=[];let currentUser=null;let authReady=false;let vipEntryScreen=sessionStorage.getItem('ppa-vip-entry-complete')==='yes'?'account':'registration';
+
+const GHL_FORM_ID='j5PEa8Wjj5wW6DcaZGDC';
+const GHL_REG_KEY='ppa-ghl-registration-j5PEa8Wjj5wW6DcaZGDC';
+let ghlRegistrationConfirmed=localStorage.getItem(GHL_REG_KEY)==='yes';
+window.addEventListener('message',event=>{
+ const frame=document.querySelector('iframe[src*="/widget/form/'+GHL_FORM_ID+'"]');
+ if(!frame||event.source!==frame.contentWindow)return;
+ const host=(()=>{try{return new URL(event.origin).hostname}catch{return ''}})();
+ if(!['link.profitablepenny.com','api.leadconnectorhq.com','link.msgsndr.com','services.leadconnectorhq.com'].includes(host)&&!host.endsWith('.leadconnectorhq.com')&&!host.endsWith('.msgsndr.com'))return;
+ let d=event.data;
+ if(typeof d==='string'){try{d=JSON.parse(d)}catch{return}}
+ let valid=false;
+ if(Array.isArray(d)){
+  valid=d[0]==='ghl-form-submit';
+  if(!valid&&typeof d[2]==='string'){try{const p=JSON.parse(d[2]);valid=Boolean(p.email&&p.customer_id&&p.full_name)}catch{}}
+ }else if(d&&typeof d==='object'){
+  valid=['ghl_form_submit','form-submitted','form_submit','ghl-form-submit'].includes(d.type||d.message||d.event);
+  const reported=d.formId||d.form_id;
+  if(reported&&reported!==GHL_FORM_ID)valid=false;
+ }
+ if(!valid)return;
+ ghlRegistrationConfirmed=true;
+ localStorage.setItem(GHL_REG_KEY,'yes');
+ onGhlRegistrationConfirmed();
+});
+
+let saved=[];let currentUser=null;let authReady=false;let vipEntryScreen=ghlRegistrationConfirmed?'account':'registration';
 let draft=null,screen='home',step=0;
 const sections=[['Review',5,'See what needs your attention'],['Approve',10,'Check the items only you can confirm'],['Understand',10,'Look beyond your bank balance'],['Act',5,'Make one decision and follow through']];
 function draftKey(){return KEY+'-draft-'+(currentUser?.uid||'guest')}
@@ -79,10 +105,12 @@ async function followupEditor(id,trigger){
 }
 function registrationView(){
 const app=$('app');
-app.innerHTML=`<section class="panel"><span class="badge">VIP gift registration</span><h2>Register for your VIP gift first</h2><p>Enter your details in the form below to register for your complimentary Financial CEO 30-Minute Routine Builder.</p><iframe title="Register for your Profitable Penny VIP gift" src="https://link.profitablepenny.com/widget/form/j5PEa8Wjj5wW6DcaZGDC" style="width:100%;height:460px;border:0;border-radius:8px" loading="eager"></iframe><div class="actions"><button id="vipContinue" type="button">Continue to account setup</button></div><p class="muted">After submitting the registration form, select Continue to set up your private account for saving your weekly work.</p></section>`;
-$('vipContinue').onclick=()=>{vipEntryScreen='account';sessionStorage.setItem('ppa-vip-entry-complete','yes');render();window.scrollTo(0,0)};
+app.innerHTML=`<section class="panel"><span class="badge">VIP gift registration</span><h2>Register for your VIP gift first</h2><p>Enter your details in the form below to register for your complimentary Financial CEO 30-Minute Routine Builder.</p><iframe title="Register for your Profitable Penny VIP gift" src="https://link.profitablepenny.com/widget/form/j5PEa8Wjj5wW6DcaZGDC" style="width:100%;height:460px;border:0;border-radius:8px" loading="eager"></iframe><div class="actions"><button id="vipContinue" type="button" disabled>Continue to account setup</button></div><p class="muted">After submitting the registration form, Continue will become available to set up your private account for saving your weekly work.</p></section>`;
+$('vipContinue').disabled=!ghlRegistrationConfirmed;
+$('vipContinue').onclick=()=>{if(!ghlRegistrationConfirmed)return;vipEntryScreen='account';render();window.scrollTo(0,0)};
 
 }
+function onGhlRegistrationConfirmed(){if(vipEntryScreen==='registration'&&$('vipContinue'))$('vipContinue').disabled=false;}
 function authView(){
 const app=$('app');app.innerHTML=`<section class="panel"><span class="badge">Your private VIP account</span><h2>Welcome to your Financial CEO routine</h2><p>You've registered for your VIP gift. To use your routine and save your work, create a private account here. It lets you save your progress, revisit earlier check-ins and return on another device. Create it once, then simply sign in. Creating an account here does not subscribe you to marketing emails.</p><form id="authForm"><label for="authEmail">Email address</label><input id="authEmail" type="email" required autocomplete="email"><label for="authPassword">Password (at least 6 characters)</label><input id="authPassword" type="password" minlength="6" required autocomplete="current-password"><label class="checkrow" for="showAuthPassword"><input id="showAuthPassword" type="checkbox"> Show password</label><div class="actions"><button id="signIn" type="submit">Sign in</button><button id="createAccount" type="button" class="secondary">Create account</button><button id="forgotPassword" type="button" class="secondary">Reset password</button></div><p id="authError" role="alert" class="status"></p></form></section>`;
 const email=()=>document.getElementById('authEmail').value.trim(),pass=()=>document.getElementById('authPassword').value;
