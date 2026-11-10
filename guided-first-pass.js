@@ -136,7 +136,7 @@ function actBody(a,g){
 
 function guidanceHelpText(){return draft.guide.helpQuestion||((step===0&&draft.guide.review.result!=='understood')?draft.guide.review.detail:'')||''}
 function guidedStepView(){
- guideState();
+ const g=guideState();
  const [name,min]=sections[step];
  $('app').innerHTML='<section class="panel"><div class="toolbar"><span class="badge">Step '+(step+1)+' of 4</span><label>Week of <input id="date" type="date" value="'+esc(draft.date)+'"></label></div><div class="steps">'+sections.map((s,i)=>'<div class="step '+(step===i?'active':'')+'">'+s[0]+'<small>'+s[1]+' minutes</small></div>').join('')+'</div><h2>'+name+' · '+min+' minutes</h2>'+guideBody(step)+(step===0&&g.review.mode!=='ok'?'<div class="group"><h3>Need help with this?</h3><p>Write a question and we will prepare an email you can copy or open. Nothing is sent automatically.</p><label for="helpQuestion">My question for Kimberley</label><textarea id="helpQuestion" placeholder="What still needs an answer?">'+esc(guidanceHelpText())+'</textarea>'+helpEmailBox(name,emailTopic(draft.guide,name),guidanceHelpText())+'</div>':'')+'<p class="muted">Your first routine may take longer as you establish a baseline. Thirty minutes is the weekly habit you’re building.</p><p id="saveError" role="alert" class="status"></p><div class="actions"><button id="back" class="secondary">'+(step===0?'Back to dashboard':'Previous step')+'</button><button id="next">'+(step===3?'Finish my weekly check-in':'Continue')+'</button></div></section>';
  $('date').onchange=e=>{draft.date=e.target.value;saveDraft()};
